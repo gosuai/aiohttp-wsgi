@@ -201,7 +201,7 @@ class WSGIHandler:
         environ = {
             "REQUEST_METHOD": request.method,
             "SCRIPT_NAME": script_name,
-            "PATH_INFO": path_info,
+            "PATH_INFO": path_info.encode().decode('latin-1'),  # https://www.python.org/dev/peps/pep-0333/#unicode-issues
             "RAW_URI": request.raw_path,
             # RAW_URI: Gunicorn's non-standard field
             "REQUEST_URI": request.raw_path,
