@@ -89,12 +89,12 @@ API reference
 """
 
 import asyncio
+import io
 import logging
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from tempfile import SpooledTemporaryFile
 from wsgiref.util import is_hop_by_hop
 from aiohttp.web import Application, AppRunner, TCPSite, UnixSite, Response, HTTPRequestEntityTooLarge, middleware
 from aiohttp_wsgi.utils import parse_sockname
@@ -244,27 +244,26 @@ class WSGIHandler:
             )
         # Buffer the body.
         content_length = 0
-        with SpooledTemporaryFile(max_size=self._inbuf_overflow) as body:
-            while True:
-                block = await request.content.readany()
-                if not block:
-                    break
-                content_length += len(block)
-                if content_length > self._max_request_body_size:
-                    raise HTTPRequestEntityTooLarge(
-                        max_size=self._max_request_body_size,
-                        actual_size=content_length,
-                    )
-                body.write(block)
-            body.seek(0)
-            # Get the environ.
-            environ = self._get_environ(request, body, content_length)
-            status, reason, headers, body = await self._loop.run_in_executor(
-                self._executor,
-                _run_application,
-                self._application,
-                environ,
-            )
+        body = b''
+        while True:
+            block = await request.content.readany()
+            if not block:
+                break
+            content_length += len(block)
+            if content_length > self._max_request_body_size:
+                raise HTTPRequestEntityTooLarge(
+                    max_size=self._max_request_body_size,
+                    actual_size=content_length,
+                )
+            body += block
+        # Get the environ.
+        environ = self._get_environ(request, io.BytesIO(body), content_length)
+        status, reason, headers, body = await self._loop.run_in_executor(
+            self._executor,
+            _run_application,
+            self._application,
+            environ,
+        )
         # All done!
         return Response(
             status=status,
