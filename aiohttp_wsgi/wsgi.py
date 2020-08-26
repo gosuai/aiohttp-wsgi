@@ -244,7 +244,7 @@ class WSGIHandler:
             )
         # Buffer the body.
         content_length = 0
-        body = b''
+        body = []
         while True:
             block = await request.content.readany()
             if not block:
@@ -255,9 +255,9 @@ class WSGIHandler:
                     max_size=self._max_request_body_size,
                     actual_size=content_length,
                 )
-            body += block
+            body.append(block)
         # Get the environ.
-        environ = self._get_environ(request, io.BytesIO(body), content_length)
+        environ = self._get_environ(request, io.BytesIO(b''.join(body)), content_length)
         status, reason, headers, body = await self._loop.run_in_executor(
             self._executor,
             _run_application,
